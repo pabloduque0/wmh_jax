@@ -1,3 +1,14 @@
+# Custom
+
+*.ipynb
+*.pkl
+*.gz
+*.pgm
+*.eds
+**/gradientmap.txt
+*.png
+commands.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
