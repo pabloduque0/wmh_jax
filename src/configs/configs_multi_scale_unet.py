@@ -5,6 +5,7 @@ from src.augmentation import augmentation_functions
 from src.train import eval_steps
 from src.train import train_steps
 import optax
+import jax.numpy as jnp
 
 def get_initial_config():
   """Get the hyperparameter configuration to train on TPUs."""
@@ -14,7 +15,10 @@ def get_initial_config():
   config.general_config.model_name = "MultiScaleUnet"
   config.general_config.data_path = "data/processed/noskull_stand_noaug"
   config.general_config.multi_label = True
-  #config.general_config.levels_multilabel = 3
+  config.general_config.pad_crop_function = None
+  config.general_config.pad_crop_kwargs = {}
+  config.general_config.call_kwargs = {"x": jnp.ones((1, 224, 224, 2))}
+  config.general_config.key_rngs = {}
 
   config.train_config = ml_collections.ConfigDict()
   config.train_config.train_step_func = train_steps.train_step_bn_multi_scale_dsc_loss

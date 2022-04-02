@@ -42,7 +42,7 @@ class Block(nn.Module):
   def setup(self):
     self.dwconv = nn.Conv(self.dim, kernel_size=7, padding=3, groups=self.dim) # depthwise conv
     self.norm = nn.LayerNorm(self.dim, eps=1e-6)
-    self.pwconv1 = nn.Linear(4 * self.dim) # pointwise/1x1 convs, implemented with linear layers
+    self.pwconv1 = nn.Dense(4 * self.dim) # pointwise/1x1 convs, implemented with linear layers
     self.act = nn.gelu
     self.pwconv2 = nn.Dense(self.dim)
     # self.param
@@ -52,11 +52,28 @@ class Block(nn.Module):
   
   @nn.compact
   def __call__(self, x):
+    input = x
+    x = self.dwconv(x)
+    x = jnp.transpose(x, axes=(0, 2, 3, 1)) # (N, C, H, W) -> (N, H, W, C)
+    x = self.norm(x)
+    x = self.pwconv1(x)
+    x = self.act(x)
+    x = self.pwconv2(x)
+    if self.gamma is not None:
+        x = self.gamma * x
+    x = jnp.transpose(x, axes=(0, 3, 1, 2)) # (N, H, W, C) -> (N, C, H, W)
+
+    x = input + self.drop_path(x)
     return x
 
 class ConvNeXt(nn.Module):
-  features: int
-  kernel_size: Tuple[int, int]
+  in_chans=3
+  num_classes=1000
+  depths=[3, 3, 9, 3]
+  dims=[96, 192, 384, 768]
+  drop_path_rate=0.
+  layer_scale_init_value=1e-6
+  head_init_scale=1.
 
   def setup(self):
     

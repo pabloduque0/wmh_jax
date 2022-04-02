@@ -8,6 +8,7 @@
 **/gradientmap.txt
 *.png
 commands.txt
+wandb/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

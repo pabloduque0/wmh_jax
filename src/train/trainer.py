@@ -33,12 +33,15 @@ import wandb
 from absl import app
 from absl import flags
 import pandas as pd
+import inspect
 
 from src.models import old_unet
 from src.models import multi_scale_unet
+from src.models import swin_unet
 
 from src.configs import configs_old_unet
 from src.configs import configs_multi_scale_unet
+from src.configs import configs_swin_unet
 
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 #os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
@@ -50,7 +53,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('fold_index', None, 'Fold index')
 
 class TrainState(train_state.TrainState):
-  batch_stats: Any
+  batch_stats: Any = None
 
 def prepare_tf_data(xs):
   # From FLAX examples: https://github.com/google/flax/blob/46126954dce1beee5b200586e983af5794137ca0/examples/imagenet/train.py#L175
@@ -105,14 +108,13 @@ def train_flax(
     epoch = step // steps_per_epoch
     aug_images, aug_labels = aug_function(images=batch_images,
                                           labels=batch_labels)
-    grads, train_batch_metrics, new_model_state = train_step_func(state=state,
+    state, train_batch_metrics = train_step_func(state=state,
                                        batch_images=aug_images,#jnp.squeeze(batch_images, axis=0),
                                        batch_labels=aug_labels,#jnp.squeeze(batch_labels, axis=0),
                                        metrics_to_calc=metrics_to_calc,
                                        prefix="train")
     #print(jax.tree_map(lambda x: np.isnan(x).any(), grads))
-    wandb_run.log(grads.unfreeze(), step=epoch, commit=False)
-    state = state.apply_gradients(grads=grads, batch_stats=new_model_state["batch_stats"])
+    #wandb_run.log(grads.unfreeze(), step=epoch, commit=False)
     train_metrics.append(train_batch_metrics)
     if (step + 1) % steps_per_epoch == 0:
       print("Epoch: ", epoch)
@@ -136,7 +138,7 @@ def train_flax(
 def main(argv):
     i = FLAGS.fold_index
     cpu = jax.devices('cpu')[0]
-    config = configs_multi_scale_unet.get_initial_config()
+    config = configs_swin_unet.get_initial_config()
     metrics_to_calc = (metrics.dice_coefficient,
                        metrics.average_volume_difference,)
                        #metrics.lession_recall,
@@ -170,7 +172,13 @@ def main(argv):
 
     single_training_name = '{}_{}'.format(config.group_name, i)
     #utils.create_folders(single_training_name, MODELS_REL_PATH)
+    if config.general_config.pad_crop_function is not None:
+      train_data = config.general_config.pad_crop_function(train_data, **config.general_config.pad_crop_kwargs)
+      train_labels = config.general_config.pad_crop_function(train_labels, **config.general_config.pad_crop_kwargs)
+      validation_data = config.general_config.pad_crop_function(validation_data, **config.general_config.pad_crop_kwargs)
+      validation_labels = config.general_config.pad_crop_function(validation_labels, **config.general_config.pad_crop_kwargs)
 
+    print(train_data.shape, validation_data.shape)
     steps_per_epoch = train_data.shape[0] // config.train_config.batch_size
     steps_per_eval = validation_data.shape[0] // config.train_config.batch_size
     if config.general_config.multi_label:
@@ -192,14 +200,14 @@ def main(argv):
     gc.collect()
     print("INIT MODEL...")
     rng = jax.random.PRNGKey(0)
-    model = multi_scale_unet.MultiScaleUnet(**config.model_config)
+    model = swin_unet.SwinTransformerSys(**config.model_config)
     print("USING DEVICE: ", jax.default_backend(), jax.devices())
     rng, init_rng = jax.random.split(rng)
-    variables = model.init({"params": init_rng}, x=jnp.ones((config.train_config.batch_size, 200, 200, 2)), is_training=False)
+    variables = model.init(init_rng, **config.general_config.call_kwargs)
     state = TrainState.create(apply_fn=model.apply,
                                           params=variables["params"],
                                           tx=config.train_config.optimizer(**config.optimizer_config),
-                                          batch_stats=variables["batch_stats"])
+                                          **{"batch_stats": variables["batch_stats"]} if "batch_stats" in variables else {})
     print("MODELS PARAMS: ", sum(x.size for x in jax.tree_leaves(variables["params"])))
     train_flax(train_dataset=train_dataset,
                 validation_dataset=validation_dataset,

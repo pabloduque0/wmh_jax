@@ -6,7 +6,7 @@ import jax
 from flax import linen as nn
 import einops
 import time
-from src.jax.models import utils
+from src.models import utils
 
 class MlpBlock(nn.Module):
   out_features: int
@@ -40,7 +40,6 @@ def _get_relative_position_index(window_size):
     relative_coords = jax.ops.index_add(relative_coords, jax.ops.index[:, :, 0], 4 - 1)  # shift to start from 0
     relative_coords = jax.ops.index_add(relative_coords, jax.ops.index[:, :, 1], 4 - 1)
     relative_coords = jax.ops.index_mul(relative_coords, jax.ops.index[:, :, 0], 2 * 4 - 1)
-    relative_coords.shape
     relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
     return relative_position_index
 
@@ -205,7 +204,7 @@ class SwinTransformerBlock(nn.Module):
     self.normalization2 = self.norm_layer()
     mlp_hidden_dim = int(self.dimension * self.mlp_ratio)
     self.mlp = MlpBlock(out_features=self.dimension, hidden_features=mlp_hidden_dim, dropout_rate=self.drop)
-    self.drop_path = utils.Identity()
+    self.drop_path = utils.Identity() #TODO Add actual drop path
     #self.drop_path = DropPath(drop_prob=self.drop_path_value, is_training=self.is_training)
     
     
@@ -528,26 +527,26 @@ class SwinTransformerSys(nn.Module):
       use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False
   """
 
-  img_size: Tuple[int, int] = (224, 224)
-  patch_size: Tuple[int, int] = (4, 4)
-  in_chans: int = 2
-  num_classes: int = 1
-  embed_dim: int = 100
-  depths: Sequence[int] = (2, 2, 2, 2)
-  depths_decoder: Sequence[int] = (1, 2, 2, 2)
-  num_heads: Sequence[int] = (3, 6, 12, 24)
-  window_size: int = 7
-  mlp_ratio: float = 4.
-  qkv_bias: bool = True
-  qk_scale: Optional[float] = None
-  drop_rate: float = 0.
-  attn_drop_rate: float = 0.
-  drop_path_rate: float = 0.1
-  norm_layer: float = nn.LayerNorm
-  ape: bool = False
-  patch_norm: bool = True
-  use_checkpoint: bool = False
-  final_upsample: str = "expand_first"
+  img_size: Tuple[int, int]
+  patch_size: Tuple[int, int]
+  in_chans: int
+  num_classes: int
+  embed_dim: int
+  depths: Sequence[int]
+  depths_decoder: Sequence[int]
+  num_heads: Sequence[int]
+  window_size: int
+  mlp_ratio: float
+  qkv_bias: bool
+  qk_scale: Optional[float]
+  drop_rate: float
+  attn_drop_rate: float
+  drop_path_rate: float
+  norm_layer: float 
+  ape: bool
+  patch_norm: bool
+  use_checkpoint: bool
+  final_upsample: str
 
   def setup(self):
     self.num_layers = len(self.depths)

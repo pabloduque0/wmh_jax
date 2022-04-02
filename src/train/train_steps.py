@@ -16,6 +16,26 @@ import wandb
 from absl import app
 from absl import flags
 
+
+@functools.partial(jax.jit, static_argnames=("prefix", "metrics_to_calc"))
+def train_step_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to_calc):
+  print("hereee", batch_images.shape, batch_labels.shape)
+  def dice_coefficient_loss(params, smooth=.0000001):
+    prediction = state.apply_fn({'params': params}, jnp.squeeze(batch_images, axis=0))
+    y_true_flat = jnp.ravel(batch_labels)
+    y_pred_flat = jnp.ravel(prediction)
+    intersection = jnp.sum(y_true_flat * y_pred_flat)
+    return -(2. * intersection + smooth) / (jnp.sum(y_true_flat) + jnp.sum(y_pred_flat) + smooth), prediction
+  grad_function = jax.value_and_grad(dice_coefficient_loss, has_aux=True)
+  (train_loss, logits), grads = grad_function(state.params)
+  batch_metrics = metrics.calculate_metrics(jnp.squeeze(batch_labels, axis=0),
+                                            logits,
+                                            metrics_to_calc,
+                                            prefix=prefix)
+  state = state.apply_gradients(grads=grads)
+  return state, batch_metrics
+
+
 @functools.partial(jax.jit, static_argnames=("prefix", "metrics_to_calc"))
 def train_step_bn_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to_calc):
   def dice_coefficient_loss(params, smooth=.0000001):
@@ -33,7 +53,8 @@ def train_step_bn_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to
                                                     jnp.squeeze(logits, axis=-1),
                                                     metrics_to_calc,
                                                     prefix=prefix)
-  return grads, batch_metrics, new_model_state
+  state = state.apply_gradients(grads=grads, batch_stats=new_model_state["batch_stats"])
+  return state, batch_metrics
 
 
 @functools.partial(jax.jit, static_argnames=("prefix", "metrics_to_calc"))
@@ -56,4 +77,5 @@ def train_step_bn_multi_scale_dsc_loss(state, batch_images, batch_labels, prefix
                                             jnp.squeeze(logits, axis=-1),
                                             metrics_to_calc,
                                             prefix=prefix)
-  return grads, batch_metrics, new_model_state
+  state = state.apply_gradients(grads=grads, batch_stats=new_model_state["batch_stats"])
+  return state, batch_metrics

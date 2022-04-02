@@ -116,12 +116,16 @@ class MultiScaleUnet(nn.Module):
                             x_for_concat=x_for_concat,
                             is_training=is_training)
       xs_for_output.append(x_output)
+    
+    del xs_for_concat
 
     sub_outputs = []
     for x_output, output_layer in zip(xs_for_output, self.output_layers):
       sub_output = output_layer(x_output)
       sub_outputs.append(sub_output)
 
+    del xs_for_output
+    
     x = self.last_conv1(x, is_training=is_training)
     x = self.last_conv2(x, is_training=is_training)
     x = self.main_output_layer(x)
