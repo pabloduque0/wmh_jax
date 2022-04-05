@@ -138,7 +138,10 @@ def train_flax(
 def main(argv):
     i = FLAGS.fold_index
     cpu = jax.devices('cpu')[0]
-    config = configs_swin_unet.get_initial_config()
+    
+    config = configs_old_unet.get_initial_config()
+    model = old_unet.CustomAttnGatedUnet(**config.model_config)
+
     metrics_to_calc = (metrics.dice_coefficient,
                        metrics.average_volume_difference,)
                        #metrics.lession_recall,
@@ -200,7 +203,6 @@ def main(argv):
     gc.collect()
     print("INIT MODEL...")
     rng = jax.random.PRNGKey(0)
-    model = swin_unet.SwinTransformerSys(**config.model_config)
     print("USING DEVICE: ", jax.default_backend(), jax.devices())
     rng, init_rng = jax.random.split(rng)
     variables = model.init(init_rng, **config.general_config.call_kwargs)

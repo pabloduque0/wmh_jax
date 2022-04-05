@@ -1,6 +1,9 @@
 import os
 import joblib
 import tensorflow as tf
+from typing import Dict, Any
+import hashlib
+import json
 
 def load_preprocessed_data(base_path, data_folder, data_name, labels_name, index):
 
@@ -19,3 +22,14 @@ def online_aug_generate_multi_scale_label(generator, labels, batch_size, seed, n
             next_label = tf.nn.max_pool(multi_scale_labels[-1], ksize=2, strides=2, padding="SAME")
             multi_scale_labels.append(next_label)
         yield multi_scale_labels
+
+
+# From: https://www.doc.ic.ac.uk/~nuric/coding/how-to-hash-a-dictionary-in-python.html
+def dict_hash(dictionary: Dict[str, Any]) -> str:
+    """MD5 hash of a dictionary."""
+    dhash = hashlib.md5()
+    # We need to sort arguments so {'a': 1, 'b': 2} is
+    # the same as {'b': 2, 'a': 1}
+    encoded = json.dumps(dictionary, sort_keys=True).encode()
+    dhash.update(encoded)
+    return dhash.hexdigest()

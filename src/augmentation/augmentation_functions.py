@@ -47,6 +47,7 @@ def base_augment_images(images, labels, n, m):
       iaa.ShearX(iap.RandomSign(_float_parameter(m, 0.33)), seed=_SEED),
       iaa.ShearY(iap.RandomSign(_float_parameter(m, 0.33)), seed=_SEED),
       iaa.Rotate(iap.RandomSign(_float_parameter(m, 30)), seed=_SEED),
+      iaa.geometric.ElasticTransformation(alpha=100, sigma=100 / _float_parameter(m, 18), seed=_SEED)
       #iaa.Cutout(1, size=iap.Clip(_float_parameter(m, 20 / 32), 0, 20 / 32),
       #                        squared=True,
       #                        fill_mode="constant",

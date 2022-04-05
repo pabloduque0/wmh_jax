@@ -3,19 +3,30 @@ import flax.linen as nn
 from src.models import metrics
 from src.augmentation import augmentation_functions
 import optax
+from src.train import eval_steps
+from src.train import train_steps
+import jax.numpy as jnp
+from jax import random
+from src import utils
+
+
 
 def get_initial_config():
   """Get the hyperparameter configuration to train on TPUs."""
   config = ml_collections.ConfigDict()
-  config.group_name = "base_old_unet_no_aug"
   config.general_config = ml_collections.ConfigDict()
   config.general_config.model_name = "OldUnet"
   config.general_config.data_path = "data/processed/noskull_stand_noaug"
   config.general_config.multi_label = False
-  config.general_config.levels_multilabel = 3
+  config.general_config.pad_crop_function = None
+  config.general_config.pad_crop_kwargs = None
+  config.general_config.call_kwargs = {"x": jnp.ones((1, 200, 200, 2)), "is_training": True}
+  config.general_config.key_rngs = {}
 
   config.train_config = ml_collections.ConfigDict()
   #config.train_config.loss_function = metrics.dice_loss
+  config.train_config.train_step_func = train_steps.train_step_bn_dsc_loss
+  config.train_config.eval_step_func = eval_steps.eval_step_bn
   config.train_config.optimizer = optax.adam
   config.train_config.batch_size = 10
   config.train_config.epochs = 100
@@ -48,6 +59,9 @@ def get_initial_config():
   config.augment_config.aug_function = augmentation_functions.no_augmentation
   config.augment_config.m = None
   config.augment_config.n = None
+
+  hash_ = "test"#utils.dict_hash(config.to_dict())
+  config.group_name = f"base_old_unet_{hash_}"
 
   return config
 

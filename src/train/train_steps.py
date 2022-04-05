@@ -19,7 +19,6 @@ from absl import flags
 
 @functools.partial(jax.jit, static_argnames=("prefix", "metrics_to_calc"))
 def train_step_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to_calc):
-  print("hereee", batch_images.shape, batch_labels.shape)
   def dice_coefficient_loss(params, smooth=.0000001):
     prediction = state.apply_fn({'params': params}, jnp.squeeze(batch_images, axis=0))
     y_true_flat = jnp.ravel(batch_labels)
@@ -40,7 +39,7 @@ def train_step_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to_ca
 def train_step_bn_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to_calc):
   def dice_coefficient_loss(params, smooth=.0000001):
     prediction, new_model_state = state.apply_fn({'params': params, 'batch_stats': state.batch_stats},
-                                                      batch_images,
+                                                      jnp.squeeze(batch_images),
                                                       mutable=['batch_stats'],
                                                       is_training=True)
     y_true_flat = jnp.ravel(batch_labels)
@@ -49,7 +48,7 @@ def train_step_bn_dsc_loss(state, batch_images, batch_labels, prefix, metrics_to
     return -(2. * intersection + smooth) / (jnp.sum(y_true_flat) + jnp.sum(y_pred_flat) + smooth), (new_model_state, prediction)
   grad_function = jax.value_and_grad(dice_coefficient_loss, has_aux=True)
   (train_loss, (new_model_state, logits)), grads = grad_function(state.params)
-  batch_metrics = metrics.calculate_metrics(batch_labels,
+  batch_metrics = metrics.calculate_metrics(jnp.squeeze(batch_labels, axis=0),
                                                     jnp.squeeze(logits, axis=-1),
                                                     metrics_to_calc,
                                                     prefix=prefix)
