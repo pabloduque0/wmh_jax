@@ -139,8 +139,8 @@ def main(argv):
     i = FLAGS.fold_index
     cpu = jax.devices('cpu')[0]
     
-    config = configs_old_unet.get_initial_config()
-    model = old_unet.CustomAttnGatedUnet(**config.model_config)
+    config = configs_swin_unet.get_augment_config_2()
+    model = swin_unet.SwinTransformerSys(**config.model_config)
 
     metrics_to_calc = (metrics.dice_coefficient,
                        metrics.average_volume_difference,)

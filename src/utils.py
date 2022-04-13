@@ -4,6 +4,9 @@ import tensorflow as tf
 from typing import Dict, Any
 import hashlib
 import json
+import copy
+import inspect
+import jax.numpy as jnp
 
 def load_preprocessed_data(base_path, data_folder, data_name, labels_name, index):
 
@@ -27,9 +30,22 @@ def online_aug_generate_multi_scale_label(generator, labels, batch_size, seed, n
 # From: https://www.doc.ic.ac.uk/~nuric/coding/how-to-hash-a-dictionary-in-python.html
 def dict_hash(dictionary: Dict[str, Any]) -> str:
     """MD5 hash of a dictionary."""
+    updated_dict = dict(dictionary)
+    funcs_to_str(dictionary=updated_dict)
     dhash = hashlib.md5()
     # We need to sort arguments so {'a': 1, 'b': 2} is
     # the same as {'b': 2, 'a': 1}
-    encoded = json.dumps(dictionary, sort_keys=True).encode()
+    encoded = json.dumps(updated_dict, sort_keys=True).encode()
     dhash.update(encoded)
     return dhash.hexdigest()
+
+def funcs_to_str(dictionary):
+  for key in dictionary:
+    if hasattr(dictionary[key], "__call__"):
+      dictionary[key] = str(dictionary[key].__name__)
+    elif isinstance(dictionary[key], jnp.ndarray):
+      dictionary[key] = dictionary[key].shape
+    elif isinstance(dictionary[key], dict):
+      funcs_to_str(dictionary[key])
+    else:
+      continue
